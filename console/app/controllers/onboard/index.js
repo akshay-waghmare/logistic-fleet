@@ -122,20 +122,38 @@ export default class OnboardIndexController extends Controller {
 
         // Set user timezone
         input.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        
+        // Request to skip verification for onboarding
+        input.skip_verification = true;
 
         this.isLoading = true;
 
         return this.fetch
             .post('onboard/create-account', input)
             .then(({ status, skipVerification, token, session }) => {
+                console.log('Onboard response:', { status, skipVerification, token, session });
+                
                 if (status === 'success') {
-                    if (skipVerification === true && token) {
-                        // only manually authenticate if skip verification
-                        this.session.isOnboarding().manuallyAuthenticate(token);
+                    console.log('Status is success, skipVerification:', skipVerification, 'type:', typeof skipVerification);
+                    
+                    if (skipVerification === true) {
+                        console.log('Skip verification is true, proceeding to authenticate');
+                        // Skip verification during onboarding flow
+                        if (token) {
+                            console.log('Token provided, authenticating with token:', token);
+                            // If token provided, authenticate immediately
+                            this.session.isOnboarding().manuallyAuthenticate(token);
+                        } else {
+                            console.log('No token, authenticating with session:', session);
+                            // If no token, create a temporary auth session with the session ID
+                            this.session.isOnboarding().manuallyAuthenticate(session);
+                        }
 
                         return this.router.transitionTo('console').then(() => {
                             this.notifications.success('Welcome to Fleetbase!');
                         });
+                    } else {
+                        console.log('Skip verification is NOT true, redirecting to verification page');
                     }
 
                     return this.router.transitionTo('onboard.verify-email', { queryParams: { hello: session } });
